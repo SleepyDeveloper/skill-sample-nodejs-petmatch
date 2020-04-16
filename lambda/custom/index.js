@@ -70,6 +70,20 @@ const InProgressPetMatchIntent = {
   },
   handle(handlerInput) {
     const currentIntent = handlerInput.requestEnvelope.request.intent;
+    const attributesManager = handlerInput.attributesManager;
+    const sessionAttributes = attributesManager.getSessionAttributes();
+
+    if(sessionAttributes[currentIntent.name]) {
+      const tempSlots = sessionAttributes[currentIntent.name].slots;
+      for(key in tempSlots) {
+        if (tempSlots[key].value && !currentIntent.slots[key].value) {
+          currentIntent.slots[key] = tempSlots[key];
+        }
+      }
+    }
+    sessionAttributes[currentIntent.name] = currentIntent;
+    attributesManager.setSessionAttributes(sessionAttributes);
+
     let prompt = '';
 
     for (const slotName in currentIntent.slots) {
@@ -157,6 +171,86 @@ const CompletedPetMatchIntent = {
       .speak(outputSpeech)
       .getResponse();
   },
+};
+
+const StartedInProgressFindAnimalShelterHandler = {
+  canHandle(handlerInput) {
+    return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+      && handlerInput.requestEnvelope.request.intent.name === 'FindAnimalShelterIntent'
+      && handlerInput.requestEnvelope.request.dialogState !== 'COMPLETED';
+  },
+  handle(handlerInput) {
+    return handlerInput.responseBuilder
+      .addDelegateDirective()
+      .getResponse();
+  }
+};
+
+const HasZipFindAnimalShelterHandler = {
+  canHandle(handlerInput) {
+  
+    return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+      && handlerInput.requestEnvelope.request.intent.name === 'FindAnimalShelterIntent'
+      && handlerInput.requestEnvelope.dialogState !== 'COMPLETED'
+      && handlerInput.requestEnvelope.request.intent.slots.zip.value;
+  },
+  handle(handlerInput) {
+    const zip = handlerInput.requestEnvelope.request.intent.slots.zip.value;
+    let outputSpeech = 'Here is where you\'ll make your api call with ' + zip;
+    // make the api call
+
+    return handlerInput.responseBuilder
+      .speak(outputSpeech)
+      .getResponse();
+  }
+};
+
+const HasCityStateFindAnimalShelterHandler = {
+  canHandle(handlerInput) {
+    return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+      && handlerInput.requestEnvelope.request.intent.name === 'FindAnimalShelterIntent'
+      && handlerInput.requestEnvelope.request.dialogState !== 'COMPLETED'
+      && handlerInput.requestEnvelope.request.intent.slots.city.value
+      && handlerInput.requestEnvelope.request.intent.slots.state.value;
+  },
+  handle(handlerInput) {
+    const city = handlerInput.requestEnvelope.request.intent.slots.city.value;
+    const state = handlerInput.requestEnvelope.request.intent.slots.state.value;
+    let outputSpeech = 'Here is where you\'ll make your api call with ' + city + ', ' + state;
+    // make the api call
+
+    return handlerInput.responseBuilder
+      .speak(outputSpeech)
+      .getResponse();
+
+  }
+};
+
+const ExplainSizeIntentHandler = {
+  canHandle(handlerInput) {
+    return handlerInput.requestEnvelope.request.type === 'IntentRequest'
+      && handlerInput.requestEnvelope.request.intent.name === 'ExplainSizeIntent';
+  },
+  handle(handlerInput) {
+
+    const size = handlerInput.requestEnvelope.request.intent.slots.size.value;
+    let unitOfMeasurement = handlerInput.requestEnvelope.request.intent.slots.unitOfMeasurement.value;
+
+    if (!unitOfMeasurement) {
+      unitOfMeasurement = 'pounds';
+    }
+
+    let outputSpeech = 'A ' + size + ' dog is ' 
+      + sizeChart[size][unitOfMeasurement] + ' ' + unitOfMeasurement + '. ';
+
+    const prompt = 'There are dogs that are tiny, small medium and large' 
+      + ' which would you like?';
+
+    return handlerInput.responseBuilder
+      .speak(outputSpeech + prompt)
+      .reprompt(prompt)
+      .getResponse();
+  }
 };
 
 const FallbackHandler = {
@@ -252,6 +346,25 @@ const slotsMeta = {
     ],
     error_default: "I'm sorry I can't match you with {0}s.",
   },
+};
+
+const sizeChart = {
+  "tiny": {
+    "pounds": "4 to 6",
+    "kilograms": "1.8 to 2.7"
+  },
+  "small": {
+    "pounds": "7 to 20",
+    "kilograms": "3.8 to 9"
+  },
+  "medium": {
+    "pounds": "21 to 54",
+    "kilograms": "9.53 to 24.49"
+  },
+  "large": {
+    "pounds": "55 to 80",
+    "kilograms": "24.94 to 38.28"
+  }
 };
 
 /* HELPER FUNCTIONS */
@@ -393,6 +506,10 @@ exports.handler = skillBuilder
     MythicalCreaturesHandler,
     InProgressPetMatchIntent,
     CompletedPetMatchIntent,
+    HasZipFindAnimalShelterHandler,
+    HasCityStateFindAnimalShelterHandler,
+    StartedInProgressFindAnimalShelterHandler,
+    ExplainSizeIntentHandler,
     HelpHandler,
     FallbackHandler,
     ExitHandler,
